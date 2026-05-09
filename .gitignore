@@ -34,8 +34,9 @@ venv/
 .mypy_cache/
 .ruff_cache/
 
-# Claude Code (commit project agents; ignore user-local overrides)
-.claude/settings.local.json
+# Claude Code (kept local-only — not pushed to the public repo)
+CLAUDE.md
+.claude/
 
 # os / editor
 .DS_Store
