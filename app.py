@@ -10,7 +10,56 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import gradio as gr
+
+def _patch_gradio_client_for_bool_schemas() -> None:
+    """Workaround for a Gradio 4.44.x bundled-gradio_client bug.
+
+    Two functions in ``gradio_client.utils`` mishandle bool JSON schemas
+    (``additionalProperties: True`` etc.):
+
+    * ``get_type`` does ``if "const" in schema`` without a type check,
+      so it raises ``TypeError: argument of type 'bool' is not iterable``.
+    * ``_json_schema_to_python_type`` falls through to a final
+      ``raise APIInfoParseError(f"Cannot parse schema {schema}")`` when
+      none of its branches match a bool input.
+
+    Either failure short-circuits Gradio's launch self-check (the homepage
+    handler invokes ``api_info`` even with ``show_api=False``) and crashes
+    the app with a misleading "localhost not accessible" ValueError.
+
+    We wrap both functions to short-circuit bool inputs to ``"Any"``,
+    which is the correct JSON-Schema-to-Python rendering for a bool
+    schema (``True`` = any value matches; ``False`` = nothing matches —
+    "Any" is a safe Python type representation for either at this layer).
+
+    Must run before ``import gradio`` so subsequent imports observe the
+    patched module attributes.
+    """
+    try:
+        from gradio_client import utils as _gcu
+    except Exception:
+        return
+
+    _orig_get_type = _gcu.get_type
+    _orig_walker = _gcu._json_schema_to_python_type
+
+    def _safe_get_type(schema):
+        if isinstance(schema, bool):
+            return "Any"
+        return _orig_get_type(schema)
+
+    def _safe_walker(schema, defs=None):
+        if isinstance(schema, bool):
+            return "Any"
+        return _orig_walker(schema, defs)
+
+    _gcu.get_type = _safe_get_type
+    _gcu._json_schema_to_python_type = _safe_walker
+
+
+_patch_gradio_client_for_bool_schemas()
+
+import gradio as gr  # noqa: E402  (must follow the patch above)
 
 from app.model_utils import ensure_model_present
 from app.predict import MODEL_PATH, predict
@@ -32,27 +81,39 @@ def _list_examples() -> list[list[str]] | None:
     return [[str(f)] for f in files] if files else None
 
 
-def classify(pil_image):
-    if pil_image is None:
-        return {}, "_Upload a leaf photo to get a prediction._"
-    result = predict(pil_image)
-    label_dict = {
-        f"{p['crop']} - {p['condition']}": p["prob"] for p in result["top_3"]
-    }
+def _format_result(result: dict) -> str:
     header = (
         result["condition"]
         if result["is_healthy"]
-        else f"{result['crop']} - {result['condition']}"
+        else f"{result['crop']} — {result['condition']}"
     )
-    md = (
+
+    top3_lines = []
+    for i, item in enumerate(result["top_3"], start=1):
+        pct = item["prob"] * 100
+        bar_len = max(1, int(round(pct / 5)))
+        bar = "█" * bar_len
+        top3_lines.append(
+            f"{i}. **{item['crop']} — {item['condition']}** — "
+            f"{pct:.2f}% `{bar}`"
+        )
+
+    return (
         f"### {header}\n\n"
         f"- **Crop:** {result['crop']}\n"
         f"- **Condition:** {result['condition']}\n"
         f"- **Healthy:** {'yes' if result['is_healthy'] else 'no'}\n"
         f"- **Confidence:** {result['confidence'] * 100:.2f}%\n\n"
+        f"**Top 3 predictions**\n\n"
+        f"{chr(10).join(top3_lines)}\n\n"
         f"<sub>Raw label: <code>{result['raw_label']}</code></sub>"
     )
-    return label_dict, md
+
+
+def classify(pil_image) -> str:
+    if pil_image is None:
+        return "_Upload a leaf photo to get a prediction._"
+    return _format_result(predict(pil_image))
 
 
 with gr.Blocks(title="Plant Disease Detection") as demo:
@@ -68,18 +129,17 @@ with gr.Blocks(title="Plant Disease Detection") as demo:
             inp = gr.Image(type="pil", label="Leaf photo")
             btn = gr.Button("Predict", variant="primary")
         with gr.Column():
-            out_label = gr.Label(num_top_classes=3, label="Top 3 predictions")
             out_md = gr.Markdown(value="_Upload a leaf photo to get a prediction._")
 
-    btn.click(fn=classify, inputs=inp, outputs=[out_label, out_md])
-    inp.change(fn=classify, inputs=inp, outputs=[out_label, out_md])
+    btn.click(fn=classify, inputs=inp, outputs=out_md)
+    inp.change(fn=classify, inputs=inp, outputs=out_md)
 
     _examples = _list_examples()
     if _examples:
         gr.Examples(
             examples=_examples,
             inputs=inp,
-            outputs=[out_label, out_md],
+            outputs=out_md,
             fn=classify,
             cache_examples=False,
             label="Examples",
@@ -92,4 +152,8 @@ with gr.Blocks(title="Plant Disease Detection") as demo:
 
 
 if __name__ == "__main__":
-    demo.launch()
+    # show_api=False sidesteps a known Gradio 4.44.x bug where the schema
+    # walker chokes on bool additionalProperties. With dict-shaped outputs
+    # eliminated (gr.Label removed), we'd no longer hit it anyway, but keeping
+    # the flag is belt-and-suspenders.
+    demo.launch(show_api=False)
