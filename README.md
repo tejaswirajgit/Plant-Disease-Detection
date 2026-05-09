@@ -8,11 +8,34 @@ Multi-class plant leaf disease classifier — **38 classes** across 14 plant spe
 
 Try it without installing anything: **<https://huggingface.co/spaces/workface/plant-disease-detection>**
 
+### Sample predictions
+
+Three real predictions from the live Space, spanning three different diseases across two crops:
+
+**Diseased Potato leaf → `Potato — Early Blight` at 100.00% confidence**
+
+![Potato Early Blight prediction on the live Space](docs/sample-potato-early-blight.png)
+
+**Heavily blighted Tomato leaf → `Tomato — Late Blight` at 89.18% confidence**
+
+![Tomato Late Blight prediction on the live Space](docs/sample-tomato-late-blight.png)
+
+> Runner-up on this case was *Tomato — Early Blight* at 10.60% — a sensible Tomato/Tomato confusion since both diseases produce dark lesions on tomato leaves. The top-3 panel always exposes these alternatives so you can sanity-check edge cases.
+
+**Tomato leaf with curling and yellowing → `Tomato — Tomato Yellow Leaf Curl Virus` at 100.00% confidence**
+
+![Tomato Yellow Leaf Curl Virus prediction on the live Space](docs/sample-tomato-yellow-leaf-curl-virus.png)
+
+> TYLCV is a whitefly-transmitted virus that causes severe yield loss in commercial tomato production — one of the more economically important diseases in the dataset.
+
 ### How to use the app
 
-- Upload a leaf photo (or pick one of the bundled examples).
-- The app returns the predicted crop and condition (or "Healthy") with a confidence score.
-- The top-3 panel shows the model's runner-up guesses for comparison.
+1. Open the Space (link above).
+2. Drop a leaf photo into the upload box, or click one of the bundled examples.
+3. Click **Predict** (or wait — predictions also fire automatically when the image changes).
+4. Read the right panel: predicted crop, condition, healthy / not-healthy flag, confidence, and the top-3 runner-ups with confidence bars.
+
+The model is trained on isolated leaf photos against a plain background — works best on similar input. Photos with multiple leaves, heavy clutter, or non-leaf subjects will still produce a prediction, but with lower confidence.
 
 ### Run the app locally
 
@@ -24,16 +47,16 @@ python app.py
 
 ## Dataset
 
-[New Plant Diseases Dataset (Augmented)](https://www.kaggle.com/datasets/vipoooool/new-plant-diseases-dataset) on Kaggle (~88k labeled images, train / valid / test splits).
+This project trains on the **[New Plant Diseases Dataset (Augmented)](https://www.kaggle.com/datasets/vipoooool/new-plant-diseases-dataset)** by [vipoooool](https://www.kaggle.com/vipoooool) on Kaggle — about **88,000 labeled leaf images** spanning 38 classes across 14 plant species: Apple, Tomato, Grape, Corn, Potato, Pepper, Strawberry, Cherry, Peach, Soybean, Squash, Raspberry, Blueberry, and Orange. It is an augmented derivative of the [PlantVillage](https://github.com/spMohanty/PlantVillage-Dataset) dataset.
 
-The dataset is **not** committed to this repo (see `.gitignore`). Download it via Kaggle:
+The dataset is **not** committed to this repo (see `.gitignore`). Download it from Kaggle:
 
 ```bash
 pip install kaggle
 kaggle datasets download -d vipoooool/new-plant-diseases-dataset --unzip -p .
 ```
 
-Or via `opendatasets` from inside the notebook (requires the same credentials).
+You'll need a Kaggle API token (`~/.kaggle/kaggle.json`, or `KAGGLE_USERNAME` / `KAGGLE_KEY` env vars — see [`.env.example`](.env.example)). Alternatively, the notebook also supports `opendatasets` for an in-notebook download flow with the same credentials.
 
 ## Setup
 
@@ -92,6 +115,7 @@ EfficientNetB0 (ImageNet weights, `include_top=False`) → `GlobalAveragePooling
 ├── app.py                               # Gradio entry point (HF Space app_file)
 ├── app/                                 # inference package: predict, model_utils, class_names.json
 ├── examples/                            # bundled leaf photos shown in the Gradio UI
+├── docs/                                # README screenshots (sample predictions)
 └── New Plant Diseases Dataset/          # gitignored — Kaggle data
 ```
 
