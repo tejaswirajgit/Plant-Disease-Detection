@@ -1,6 +1,26 @@
 # Plant Disease Detection
 
+[![HF Space](https://img.shields.io/badge/🤗%20Spaces-Live%20Demo-blue)](https://huggingface.co/spaces/workface/plant-disease-detection)
+
 Multi-class plant leaf disease classifier — **38 classes** across 14 plant species — built on transfer-learned **EfficientNetB0** with TensorFlow / Keras 2.12. Reference run reached ~99.84% validation accuracy.
+
+## Live Demo
+
+Try it without installing anything: **<https://huggingface.co/spaces/workface/plant-disease-detection>**
+
+### How to use the app
+
+- Upload a leaf photo (or pick one of the bundled examples).
+- The app returns the predicted crop and condition (or "Healthy") with a confidence score.
+- The top-3 panel shows the model's runner-up guesses for comparison.
+
+### Run the app locally
+
+```bash
+pip install -r requirements.txt
+python export_model.py        # only if plant_disease_model.keras isn't already on disk
+python app.py
+```
 
 ## Dataset
 
@@ -64,10 +84,14 @@ EfficientNetB0 (ImageNet weights, `include_top=False`) → `GlobalAveragePooling
 .
 ├── LICENSE                              # MIT
 ├── README.md                            # this file
-├── requirements.txt                     # pinned deps (TF 2.12)
+├── requirements.txt                     # pinned deps (TF 2.12 + Gradio + HF Hub)
 ├── .env.example                         # template for Kaggle creds (copy to .env)
 ├── .gitignore                           # excludes dataset, weights, secrets
-├── Plant Leaf Disease Detection.ipynb   # main pipeline notebook
+├── Plant Leaf Disease Detection.ipynb   # main training pipeline notebook
+├── export_model.py                      # one-shot export of .keras + class_names.json
+├── app.py                               # Gradio entry point (HF Space app_file)
+├── app/                                 # inference package: predict, model_utils, class_names.json
+├── examples/                            # bundled leaf photos shown in the Gradio UI
 └── New Plant Diseases Dataset/          # gitignored — Kaggle data
 ```
 
