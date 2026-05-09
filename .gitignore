@@ -1,0 +1,44 @@
+# secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+kaggle.json
+.kaggle/
+secrets/
+credentials/
+
+# data & artifacts (the Kaggle dataset and any trained weights stay OUT of git)
+New Plant Diseases Dataset/
+new-plant-diseases-dataset/
+fine_tune_checkpoints/
+plant_disease_model/
+artifacts/
+*.h5
+*.keras
+*.pt
+*.pth
+*.onnx
+*.tflite
+*.npy
+*.npz
+
+# python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.ipynb_checkpoints/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Claude Code (commit project agents; ignore user-local overrides)
+.claude/settings.local.json
+
+# os / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

@@ -1,0 +1,19 @@
+# Pinned to match the original training run.
+# TF 2.12 forces numpy<1.24; do not bump without re-validating the notebook.
+tensorflow==2.12.0
+numpy<1.24
+
+# Dataset download from Kaggle
+opendatasets>=0.1.22
+kaggle>=1.5.13
+
+# Notebook + plotting
+matplotlib>=3.5
+pillow>=9.0
+ipykernel>=6.0
+jupyter>=1.0
+
+# Optional but useful for evaluation work the agent may do later:
+# scikit-learn>=1.2
+# pandas>=1.5
+# seaborn>=0.12
