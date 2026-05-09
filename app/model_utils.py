@@ -11,10 +11,10 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-# TODO(phase-6-step-3): replace with the real release asset URL.
-# Will be:
-#   https://github.com/tejaswirajgit/Plant-Disease-Detection/releases/download/v1.0-model-weights/plant_disease_model.keras
-DEFAULT_MODEL_RELEASE_URL = ""
+DEFAULT_MODEL_RELEASE_URL = (
+    "https://github.com/tejaswirajgit/Plant-Disease-Detection"
+    "/releases/download/v1.0-model-weights/plant_disease_model.keras"
+)
 
 _CHUNK = 1 << 20  # 1 MiB
 

@@ -18,6 +18,11 @@ Environment overrides (defaults match the in-repo layout from CLAUDE.md):
     TRAIN_DIR        train/ folder containing 38 class subdirs
     VALID_DIR        valid/ folder (used to source example images)
     CHECKPOINT_DIR   TF checkpoint directory written by ModelCheckpoint
+    SOURCE_KERAS     (optional) if set, copy this pre-saved .keras file
+                     directly instead of rebuilding + loading from checkpoint.
+                     Use when the original training run produced a single
+                     .keras / SavedModel artifact and the raw checkpoint
+                     shards aren't available (or aren't loadable).
 """
 from __future__ import annotations
 
@@ -40,6 +45,7 @@ VALID_DIR = Path(os.environ.get(
     ROOT / "New Plant Diseases Dataset" / "New Plant Diseases Dataset(Augmented)" / "valid",
 ))
 CHECKPOINT_DIR = Path(os.environ.get("CHECKPOINT_DIR", ROOT / "fine_tune_checkpoints"))
+SOURCE_KERAS = os.environ.get("SOURCE_KERAS")  # optional fast path
 
 KERAS_OUT = ROOT / "plant_disease_model.keras"
 CLASS_NAMES_OUT_ROOT = ROOT / "class_names.json"
@@ -121,7 +127,10 @@ def copy_examples(valid_dir: Path, dest: Path, classes: list[str]) -> None:
 def main() -> None:
     print(f"TRAIN_DIR      = {TRAIN_DIR}")
     print(f"VALID_DIR      = {VALID_DIR}")
-    print(f"CHECKPOINT_DIR = {CHECKPOINT_DIR}")
+    if SOURCE_KERAS:
+        print(f"SOURCE_KERAS   = {SOURCE_KERAS}  (skipping checkpoint load)")
+    else:
+        print(f"CHECKPOINT_DIR = {CHECKPOINT_DIR}")
     print()
 
     class_names = discover_class_names(TRAIN_DIR)
@@ -130,11 +139,33 @@ def main() -> None:
             f"Expected 38 class folders in {TRAIN_DIR}, found {len(class_names)}."
         )
 
-    model = build_model()
-    load_trained_weights(model, CHECKPOINT_DIR)
-
-    print(f"\nSaving model -> {KERAS_OUT}")
-    model.save(str(KERAS_OUT))
+    if SOURCE_KERAS:
+        src = Path(SOURCE_KERAS)
+        if not src.is_file():
+            raise SystemExit(f"SOURCE_KERAS not found: {src}")
+        print(f"Loading pre-saved model {src} (will re-emit in current TF format)")
+        # compile=False skips the optimizer-state load, which is the part most
+        # likely to break across TF versions. We don't need the optimizer for
+        # inference. Accept .h5 or .keras input.
+        try:
+            model = tf.keras.models.load_model(str(src), compile=False)
+        except Exception as e:
+            raise SystemExit(
+                f"Failed to load {src} in this TF version ({tf.__version__}). "
+                f"If the source was saved with TF 2.13+ try the .h5 sibling instead. "
+                f"Underlying error: {type(e).__name__}: {e}"
+            )
+        if model.output_shape[-1] != 38:
+            raise SystemExit(
+                f"Loaded model has output dim {model.output_shape[-1]}, expected 38."
+            )
+        print(f"Re-saving in TF {tf.__version__} format -> {KERAS_OUT}")
+        model.save(str(KERAS_OUT))
+    else:
+        model = build_model()
+        load_trained_weights(model, CHECKPOINT_DIR)
+        print(f"\nSaving model -> {KERAS_OUT}")
+        model.save(str(KERAS_OUT))
 
     payload = json.dumps(class_names, indent=2) + "\n"
     CLASS_NAMES_OUT_ROOT.write_text(payload, encoding="utf-8")
